@@ -72,24 +72,45 @@ def load_ckpt(path, **kwargs):
 
     for k, v in kwargs.items():
         state_dict = ckpt[k]
-        model_keys = v.state_dict().keys()
-        ckpt_keys = state_dict.keys()
+        model_state = v.state_dict()
 
-        if all(key.startswith('module.') for key in ckpt_keys) and not any(key.startswith('module.') for key in model_keys):
-            new_state_dict = {}
-            for key in ckpt_keys:
-                new_key = key.replace('module.', '', 1)
-                new_state_dict[new_key] = state_dict[key]
-            state_dict = new_state_dict
-        elif not any(key.startswith('module.') for key in ckpt_keys) and all(key.startswith('module.') for key in model_keys):
-            new_state_dict = {}
-            for key in ckpt_keys:
-                new_key = 'module.' + key
-                new_state_dict[new_key] = state_dict[key]
-            state_dict = new_state_dict
+        is_ckpt_distributed = all(key.startswith('module.') for key in state_dict.keys())
+        is_model_distributed = all(key.startswith('module.') for key in model_state.keys())
+
+        if is_ckpt_distributed and not is_model_distributed:
+            state_dict = {key.replace('module.', '', 1): value for key, value in state_dict.items()}
+        elif not is_ckpt_distributed and is_model_distributed:
+            state_dict = {'module.' + key: value for key, value in state_dict.items()}
+
+        for name, param in state_dict.items():
+            if name in model_state and model_state[name].shape != param.shape:
+                print(f"Handling sizze mismatch in layer: {name}")
+                print(f"Ckpt size: {param.size}, Model shape: {model_state[name].shape}")
+
+                new_param = model_state[name].clone
+                slicers = tuple(slice(0, min(dim_new, dim_old)) for dim_new, dim_old in zip(new_param.shape, param.shape))
+
+                new_param[slicers] = param[slicers]
+                state_dict[name] = new_param
 
         v.load_state_dict(state_dict, strict=False)
     return [i for i in kwargs.values()]
+
+        #if all(key.startswith('module.') for key in ckpt_keys) and not any(key.startswith('module.') for key in model_keys):
+        #    new_state_dict = {}
+        #    for key in ckpt_keys:
+        #        new_key = key.replace('module.', '', 1)
+        #        new_state_dict[new_key] = state_dict[key]
+        #    state_dict = new_state_dict
+        #elif not any(key.startswith('module.') for key in ckpt_keys) and all(key.startswith('module.') for key in model_keys):
+        #    new_state_dict = {}
+        #    for key in ckpt_keys:
+        #        new_key = 'module.' + key
+        #        new_state_dict[new_key] = state_dict[key]
+        #    state_dict = new_state_dict
+
+        #v.load_state_dict(state_dict, strict=False)
+    #return [i for i in kwargs.values()]
 
 
 def move_to_device(data, device: torch.device):

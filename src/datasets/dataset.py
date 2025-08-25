@@ -16,6 +16,10 @@ SIMULATION_VARIABLES = {
     "poisson_gauss": {
         "inputs": ["source_term"],
         "outputs": ["solution"]
+    },
+    "elasticity": {
+        "inputs": ["displacement_x", "displacement_y"],
+        "outputs": ["stress"]
     }
     # Add more simulations here in the future
 }
