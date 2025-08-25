@@ -4,6 +4,22 @@ from pathlib import Path
 from typing import Union, Sequence, NamedTuple, Literal
 from copy import deepcopy
 
+SIMULATION_VARIABLES = {
+    "plasma_1d": {
+        "inputs": ["x_coord", "y_coord", "total_charge", "total_vorticity"],
+        "outputs": ["velocity", "electric_field"]
+    },
+    "vorticity_2d": {
+        "inputs": ["x_coord", "y_coord", "total_vorticity"],
+        "outputs": ["velocity"]
+    },
+    "poisson_gauss": {
+        "inputs": ["source_term"],
+        "outputs": ["solution"]
+    }
+    # Add more simulations here in the future
+}
+
 @dataclass
 class Metadata:
   periodic: bool
@@ -14,7 +30,7 @@ class Metadata:
   fix_x: bool
   domain_x: tuple[Sequence[int], Sequence[int]]
   domain_t: tuple[int, int]
-  active_variables: Sequence[int]  # Index of variables in input/output
+  #active_variables: Sequence[int]  # Index of variables in input/output
   chunked_variables: Sequence[int]  # Index of variable groups
   num_variable_chunks: int  # Number of variable chunks
   signed: dict[str, Union[bool, Sequence[bool]]]
@@ -65,7 +81,7 @@ DATASET_METADATA = {
     domain_x=([-1, -1.5], [2.5, 2]),
     domain_t=None,
     fix_x=False,
-    active_variables=[0],
+    #active_variables=[0],
     chunked_variables=[0],
     num_variable_chunks=1,
     signed={'u': [False], 'c': [False, False, False]},
@@ -82,7 +98,7 @@ DATASET_METADATA = {
     domain_x=([-1, -1.5], [2.5, 2]),
     domain_t=None,
     fix_x=False,
-    active_variables=[0],
+    #active_variables=[0],
     chunked_variables=[0],
     num_variable_chunks=1,
     signed={'u': [False], 'c': [False, False, False]},
@@ -99,7 +115,7 @@ DATASET_METADATA = {
     domain_x=([-1, -1.5], [2.5, 2]),
     domain_t=None,
     fix_x=False,
-    active_variables=[0],
+    #active_variables=[0],
     chunked_variables=[0],
     num_variable_chunks=1,
     signed={'u': [False], 'c': [False, False, False]},
@@ -116,7 +132,7 @@ DATASET_METADATA = {
     domain_x=([-9.0, -9.0], [9.0, 9.0]),
     domain_t=None,
     fix_x=False,
-    active_variables=[0],
+    #active_variables=[0],
     chunked_variables=[0],
     num_variable_chunks=1,
     signed={'u': [False], 'c': [False, False, False]},
@@ -135,7 +151,7 @@ DATASET_METADATA = {
     domain_x=([0, 0], [1, 1]),
     domain_t=(0, 1),
     fix_x=True,
-    active_variables=ACTIVE_VARS_CE,
+    #active_variables=ACTIVE_VARS_CE,
     chunked_variables=CHUNKED_VARS_CE,
     num_variable_chunks=len(set(CHUNKED_VARS_CE)),
     signed=SIGNED_CE,
@@ -152,7 +168,7 @@ DATASET_METADATA = {
     domain_x=([0, 0], [1, 1]),
     domain_t=(0, 1),
     fix_x=True,
-    active_variables=ACTIVE_VARS_CE,
+    #active_variables=ACTIVE_VARS_CE,
     chunked_variables=CHUNKED_VARS_CE,
     num_variable_chunks=len(set(CHUNKED_VARS_CE)),
     signed=SIGNED_CE,
@@ -169,7 +185,7 @@ DATASET_METADATA = {
     domain_x=([0, 0], [1, 1]),
     domain_t=(0, 1),
     fix_x=True,
-    active_variables=ACTIVE_VARS_CE,
+    #active_variables=ACTIVE_VARS_CE,
     chunked_variables=CHUNKED_VARS_CE,
     num_variable_chunks=len(set(CHUNKED_VARS_CE)),
     signed=SIGNED_CE,
@@ -186,7 +202,7 @@ DATASET_METADATA = {
     domain_x=([0, 0], [1, 1]),
     domain_t=(0, 1),
     fix_x=True,
-    active_variables=ACTIVE_VARS_CE,
+    #active_variables=ACTIVE_VARS_CE,
     chunked_variables=CHUNKED_VARS_CE,
     num_variable_chunks=len(set(CHUNKED_VARS_CE)),
     signed=SIGNED_CE,
@@ -203,7 +219,7 @@ DATASET_METADATA = {
     domain_x=([0, 0], [1, 1]),
     domain_t=(0, 1),
     fix_x=True,
-    active_variables=ACTIVE_VARS_CE,
+    #active_variables=ACTIVE_VARS_CE,
     chunked_variables=CHUNKED_VARS_CE,
     num_variable_chunks=len(set(CHUNKED_VARS_CE)),
     signed=SIGNED_CE,
@@ -222,7 +238,7 @@ DATASET_METADATA = {
     domain_x=([0, 0], [1, 1]),
     domain_t=(0, 1),
     fix_x=True,
-    active_variables=ACTIVE_VARS_NS,
+    #active_variables=ACTIVE_VARS_NS,
     chunked_variables=CHUNKED_VARS_NS,
     num_variable_chunks=len(set(CHUNKED_VARS_NS)),
     signed=SIGNED_NS,
@@ -239,7 +255,7 @@ DATASET_METADATA = {
     domain_x=([0, 0], [1, 1]),
     domain_t=(0, 1),
     fix_x=True,
-    active_variables=ACTIVE_VARS_NS,
+    #active_variables=ACTIVE_VARS_NS,
     chunked_variables=CHUNKED_VARS_NS,
     num_variable_chunks=len(set(CHUNKED_VARS_NS)),
     signed=SIGNED_NS,
@@ -256,7 +272,7 @@ DATASET_METADATA = {
     domain_x=([0, 0], [1, 1]),
     domain_t=(0, 1),
     fix_x=True,
-    active_variables=ACTIVE_VARS_NS,
+    #active_variables=ACTIVE_VARS_NS,
     chunked_variables=CHUNKED_VARS_NS,
     num_variable_chunks=len(set(CHUNKED_VARS_NS)),
     signed=SIGNED_NS,
@@ -273,7 +289,7 @@ DATASET_METADATA = {
     domain_x=([0, 0], [1, 1]),
     domain_t=(0, 1),
     fix_x=True,
-    active_variables=ACTIVE_VARS_NS,
+    #active_variables=ACTIVE_VARS_NS,
     chunked_variables=CHUNKED_VARS_NS,
     num_variable_chunks=len(set(CHUNKED_VARS_NS)),
     signed=SIGNED_NS,
@@ -290,7 +306,7 @@ DATASET_METADATA = {
     domain_x=([0, 0], [1, 1]),
     domain_t=(0, 1),
     fix_x=True,
-    active_variables=ACTIVE_VARS_NS,
+    #active_variables=ACTIVE_VARS_NS,
     chunked_variables=CHUNKED_VARS_NS,
     num_variable_chunks=len(set(CHUNKED_VARS_NS)),
     signed=SIGNED_NS,
@@ -309,7 +325,7 @@ DATASET_METADATA = {
     domain_x=([0, 0], [1, 1]),
     domain_t=None,
     fix_x=False,
-    active_variables=[0],
+    #active_variables=[0],
     chunked_variables=[0],
     num_variable_chunks=1,
     signed={'u': [False], 'c': [False]},
@@ -326,7 +342,7 @@ DATASET_METADATA = {
     domain_x=([-.5, -.5], [1.5, 1.5]),
     domain_t=None,
     fix_x=True,
-    active_variables=[0],
+    #active_variables=[0],
     chunked_variables=[0],
     num_variable_chunks=1,
     signed={'u': [True], 'c': [True]},
@@ -343,7 +359,7 @@ DATASET_METADATA = {
     domain_x=([0, 0], [1, 1]),
     domain_t=None,
     fix_x=True,
-    active_variables=ACTIVE_VARS_PE,
+    #active_variables=ACTIVE_VARS_PE,
     chunked_variables=CHUNKED_VARS_PE,
     num_variable_chunks=len(set(CHUNKED_VARS_PE)),
     signed=SIGNED_PE,
@@ -362,7 +378,7 @@ DATASET_METADATA = {
     domain_x=([0., 0.], [1., 1.]),
     domain_t=(0, 0.002),
     fix_x=True,
-    active_variables=[0],
+    #active_variables=[0],
     chunked_variables=[0],
     num_variable_chunks=1,
     signed={'u': [True], 'c': None},
@@ -379,7 +395,7 @@ DATASET_METADATA = {
     domain_x=([0, 0], [1, 1]),
     domain_t=(0, 0.0002),
     fix_x=True,
-    active_variables=ACTIVE_VARS_RD,
+    #active_variables=ACTIVE_VARS_RD,
     chunked_variables=CHUNKED_VARS_RD,
     num_variable_chunks=len(set(CHUNKED_VARS_RD)),
     signed=SIGNED_RD,
@@ -398,7 +414,7 @@ DATASET_METADATA = {
     domain_x=([-.5, -.5], [1.5, 1.5]),
     domain_t=(0, 0.1),
     fix_x=True,
-    active_variables=[0],
+    #active_variables=[0],
     chunked_variables=[0],
     num_variable_chunks=1,
     signed={'u': [True], 'c': None},
@@ -415,7 +431,7 @@ DATASET_METADATA = {
     domain_x=([0, 0], [1, 1]),
     domain_t=(0, 1),
     fix_x=True,
-    active_variables=ACTIVE_VARS_WE,
+    #active_variables=ACTIVE_VARS_WE,
     chunked_variables=CHUNKED_VARS_WE,
     num_variable_chunks=len(set(CHUNKED_VARS_WE)),
     signed=SIGNED_WE,
@@ -432,7 +448,7 @@ DATASET_METADATA = {
     domain_x=([0, 0], [1, 1]),
     domain_t=(0, 1),
     fix_x=True,
-    active_variables=ACTIVE_VARS_WE,
+    #active_variables=ACTIVE_VARS_WE,
     chunked_variables=CHUNKED_VARS_WE,
     num_variable_chunks=len(set(CHUNKED_VARS_WE)),
     signed=SIGNED_WE,
@@ -449,7 +465,7 @@ DATASET_METADATA = {
     domain_x=([0.5, 0.], [1.5, 1.]),
     domain_t=(0, 0.1),
     fix_x=True,
-    active_variables=[0],
+    #active_variables=[0],
     chunked_variables=[0],
     num_variable_chunks=1,
     signed={'u': [True], 'c': None},

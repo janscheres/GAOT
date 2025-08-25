@@ -4,6 +4,7 @@ Unified Static Trainer for GAOT.
 import torch
 from typing import Optional
 
+from ..datasets.dataset import SIMULATION_VARIABLES
 from ..core.base_trainer import BaseTrainer
 from ..core.trainer_utils import move_to_device, denormalize_data
 from ..datasets.data_processor import DataProcessor
@@ -64,8 +65,8 @@ class StaticTrainer(BaseTrainer):
         c_sample = data_splits['train']['c']
         u_sample = data_splits['train']['u']
         
-        self.num_input_channels = c_sample.shape[-1] if c_sample is not None else 0
-        self.num_output_channels = u_sample.shape[-1]
+        self.num_input_channels = len(self.data_processor.all_input_vars)
+        self.num_output_channels = len(self.data_processor.all_output_vars)
         
         if is_variable_coords:
             self._init_variable_coords_mode(data_splits)
@@ -175,7 +176,7 @@ class StaticTrainer(BaseTrainer):
             pndata=x_batch
         )
         
-        return self.loss_fn(pred, y_batch)
+        return self.loss_fn(pred, y_batch, self.loss_mask)
     
     def _train_step_variable_coords(self, batch):
         """Training step for variable coordinates mode."""
@@ -199,7 +200,7 @@ class StaticTrainer(BaseTrainer):
             decoder_nbrs=decoder_graph_batch
         )
         
-        return self.loss_fn(pred, y_batch)
+        return self.loss_fn(pred, y_batch, self.loss_mask)
     
     def validate(self, loader):
         """Validate the model on validation set."""
@@ -238,7 +239,7 @@ class StaticTrainer(BaseTrainer):
             pndata=x_batch
         )
         
-        return self.loss_fn(pred, y_batch)
+        return self.loss_fn(pred, y_batch, self.loss_mask)
     
     def _validate_variable_coords(self, batch):
         """Validation step for variable coordinates."""
@@ -262,7 +263,7 @@ class StaticTrainer(BaseTrainer):
             decoder_nbrs=decoder_graph_batch
         )
         
-        return self.loss_fn(pred, y_batch)
+        return self.loss_fn(pred, y_batch, self.loss_mask)
     
     def test(self):
         """Test the model and save results."""
@@ -285,34 +286,47 @@ class StaticTrainer(BaseTrainer):
                 y_denorm = denormalize_data(y_sample, self.data_processor.u_mean.to(self.device), 
                                           self.data_processor.u_std.to(self.device))
                 
-                relative_errors = compute_batch_errors(y_denorm, pred_denorm, self.metadata)
+                relative_errors = compute_batch_errors(y_denorm, pred_denorm, self.metadata, self.dataset_config.simulation_name)
                 all_relative_errors.append(relative_errors)
         
         all_relative_errors = torch.cat(all_relative_errors, dim=0)
         final_metric = compute_final_metric(all_relative_errors)
         self.config.datarow["relative error (direct)"] = final_metric
         print(f"Relative error: {final_metric}")
+
+        sim_vars = SIMULATION_VARIABLES[self.dataset_config.simulation_name]
+        active_input_vars = sim_vars['inputs']
+        active_output_vars = sim_vars['outputs']
+
+        active_input_indices = [self.data_processor.input_var_to_index[var] for var in active_input_vars]
+        active_output_indices = [self.data_processor.output_var_to_index[var] for var in active_output_vars]
         
         if x_sample is not None and self.data_processor.c_mean is not None:
             x_sample_denorm = denormalize_data(x_sample, self.data_processor.c_mean.to(self.device),
                                              self.data_processor.c_std.to(self.device))
+            u_inp_active = x_sample_denorm[-1, :, active_input_indices].cpu().numpy()
         else:
-            x_sample_denorm = x_sample
+            u_inp_active = None
+
+        u_gtr_active = y_denorm[-1, :, active_output_indices].cpu().numpy()
+        u_prd_active = pred_denorm[-1, :, active_output_indices].cpu().numpy()
+        names_active = self.metadata.names.get('u', []) + self.metadata.names.get('c', [])
+        symmetric_active = self.metadata.signed.get('u', []) + self.metadata.signed.get('c', [])
 
         original_coords = self.data_processor.coord_scaler.inverse_transform(coord_used.cpu())
         coord_plot = original_coords.numpy()
 
         fig = plot_estimates(
-            u_inp=x_sample_denorm[-1].cpu().numpy() if x_sample_denorm is not None else None,
-            u_gtr=y_denorm[-1].cpu().numpy(),
-            u_prd=pred_denorm[-1].cpu().numpy(),
+            u_inp=u_inp_active,
+            u_gtr=u_gtr_active,
+            u_prd=u_prd_active,
             x_inp=coord_plot,
             x_out=coord_plot,
-            names=self.metadata.names.get('c', ['input']) if x_sample_denorm is not None else None,
-            symmetric=self.metadata.signed['u'],
+            names=names_active,
+            symmetric=symmetric_active,
             domain=self.metadata.domain_x
         )
-        
+
         fig.savefig(self.path_config.result_path, dpi=300, bbox_inches="tight", pad_inches=0.1)
         print(f"Plot saved to {self.path_config.result_path}")
         

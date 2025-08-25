@@ -9,6 +9,7 @@ import xarray as xr
 from typing import Dict, Tuple, Optional, Union
 from torch.utils.data import Dataset, DataLoader, TensorDataset
 
+from .dataset import SIMULATION_VARIABLES
 from ..core.trainer_utils import compute_data_stats, normalize_data
 from ..utils.scaling import CoordinateScaler, rescale
 from .data_utils import CustomDataset, collate_variable_batch
@@ -27,6 +28,12 @@ class DataProcessor:
         self.dataset_config = dataset_config
         self.metadata = metadata
         self.dtype = dtype
+
+        self.all_input_vars = sorted(list(set(var for sim in SIMULATION_VARIABLES.values() for var in sim['inputs'])))
+        self.all_output_vars = sorted(list(set(var for sim in SIMULATION_VARIABLES.values() for var in sim['outputs'])))
+
+        self.input_var_to_index = {var: i for i, var in enumerate(self.all_input_vars)}
+        self.output_var_to_index = {var: i for i, var in enumerate(self.all_output_vars)}
         
         # Data statistics for normalization
         self.u_mean = None
@@ -73,7 +80,7 @@ class DataProcessor:
         with xr.open_dataset(dataset_path) as ds:
             # Load u (solution) data
             u_array = ds[self.metadata.group_u].values
-            
+
             # Load c (condition) data if available
             if self.metadata.group_c is not None:
                 c_array = ds[self.metadata.group_c].values
@@ -137,6 +144,10 @@ class DataProcessor:
     
     def _split_and_normalize_data(self, raw_data: Dict, is_variable_coords: bool) -> Dict:
         """Split data and apply normalization."""
+        sim_vars = SIMULATION_VARIABLES[self.dataset_config.simulation_name]
+        active_input_vars = sim_vars['inputs']
+        active_output_vars = sim_vars['outputs']
+
         u_array = raw_data['u']
         c_array = raw_data['c']
         x_array = raw_data['x']
@@ -149,26 +160,40 @@ class DataProcessor:
             if x_array is not None:
                 x_array = x_array[..., :9216, :]
         
-        # Select active variables
-        active_vars = self.metadata.active_variables
-        u_array = u_array[..., active_vars]
-        
+        num_samples = u_array.shape[0]
+        num_nodes = u_array.shape[2]
+
+        padded_c_array = np.zeros((num_samples, 1, num_nodes, len(self.all_input_vars)), dtype=np.float32)
+        padded_u_array = np.zeros((num_samples, 1, num_nodes, len(self.all_output_vars)), dtype=np.float32)
+
+        if c_array is not None:
+            for i, var_name in enumerate(active_input_vars):
+                if var_name in self.input_var_to_index:
+                    target_index = self.input_var_to_index[var_name]
+                    # Ensure we don't go out of bounds of the source array
+                    if i < c_array.shape[-1]:
+                        padded_c_array[:, :, :, target_index] = c_array[:, :, :, i]
+
+        for i, var_name in enumerate(active_output_vars):
+            if var_name in self.output_var_to_index:
+                target_index = self.output_var_to_index[var_name]
+                # Ensure we don't go out of bounds of the source array
+                if i < u_array.shape[-1]:
+                    padded_u_array[:, :, :, target_index] = u_array[:, :, :, i]
+
         # Validate shapes
-        assert u_array.shape[1] == 1, "Expected num_timesteps to be 1 for static datasets"
+        assert padded_u_array.shape[1] == 1, "Expected num_timesteps to be 1 for static datasets"
         
         # Split data
-        train_indices, val_indices, test_indices = self._get_split_indices(len(u_array))
+        train_indices, val_indices, test_indices = self._get_split_indices(len(padded_u_array))
         
-        u_train = np.ascontiguousarray(u_array[train_indices])
-        u_val = np.ascontiguousarray(u_array[val_indices])
-        u_test = np.ascontiguousarray(u_array[test_indices])
+        u_train = np.ascontiguousarray(padded_u_array[train_indices])
+        u_val = np.ascontiguousarray(padded_u_array[val_indices])
+        u_test = np.ascontiguousarray(padded_u_array[test_indices])
         
-        if c_array is not None:
-            c_train = np.ascontiguousarray(c_array[train_indices])
-            c_val = np.ascontiguousarray(c_array[val_indices])
-            c_test = np.ascontiguousarray(c_array[test_indices])
-        else:
-            c_train = c_val = c_test = None
+        c_train = np.ascontiguousarray(padded_c_array[train_indices])
+        c_val = np.ascontiguousarray(padded_c_array[val_indices])
+        c_test = np.ascontiguousarray(padded_c_array[test_indices])
 
         if is_variable_coords:
             x_train = x_array[train_indices]
@@ -214,35 +239,44 @@ class DataProcessor:
         
         return train_indices, val_indices, test_indices
     
-    def _compute_and_apply_normalization(self, u_train, u_val, u_test, 
-                                        c_train, c_val, c_test):
+    def _compute_and_apply_normalization(self, u_train_padded, u_val_padded, u_test_padded, 
+                                        c_train_padded, c_val_padded, c_test_padded):
         """Compute normalization statistics and apply to all splits."""
         print("Computing statistics and normalizing data")
+        sim_vars = SIMULATION_VARIABLES[self.dataset_config.simulation_name]
+        active_output_indices = [self.output_var_to_index[var] for var in sim_vars['outputs']]
+        active_input_indices = [self.input_var_to_index[var] for var in sim_vars['inputs']]
+
+       # Calculate stats ONLY on the active columns of the training data
+        u_train_active = u_train_padded[..., active_output_indices]
+        u_train_flat = u_train_active.reshape(-1, u_train_active.shape[-1])
+        u_mean_active = np.mean(u_train_flat, axis=0)
+        u_std_active = np.std(u_train_flat, axis=0) + EPSILON
+    
+        # Store these stats in the master-sized tensors
+        self.u_mean = torch.zeros(len(self.all_output_vars), dtype=self.dtype)
+        self.u_std = torch.ones(len(self.all_output_vars), dtype=self.dtype) # Use 1 for std of padded vars
+        self.u_mean[active_output_indices] = torch.tensor(u_mean_active, dtype=self.dtype)
+        self.u_std[active_output_indices] = torch.tensor(u_std_active, dtype=self.dtype)
         
-        # Normalize u data
-        u_train_flat = u_train.reshape(-1, u_train.shape[-1])
-        u_mean = np.mean(u_train_flat, axis=0)
-        u_std = np.std(u_train_flat, axis=0) + EPSILON
-        
-        self.u_mean = torch.tensor(u_mean, dtype=self.dtype)
-        self.u_std = torch.tensor(u_std, dtype=self.dtype)
-        
-        u_train[:] = (u_train - u_mean) / u_std
-        u_val[:] = (u_val - u_mean) / u_std
-        u_test[:] = (u_test - u_mean) / u_std
-        
-        # Normalize c data if available
-        if c_train is not None:
-            c_train_flat = c_train.reshape(-1, c_train.shape[-1])
-            c_mean = np.mean(c_train_flat, axis=0)
-            c_std = np.std(c_train_flat, axis=0) + EPSILON
-            
-            self.c_mean = torch.tensor(c_mean, dtype=self.dtype)
-            self.c_std = torch.tensor(c_std, dtype=self.dtype)
-            
-            c_train[:] = (c_train - c_mean) / c_std
-            c_val[:] = (c_val - c_mean) / c_std
-            c_test[:] = (c_test - c_mean) / c_std
+        # Normalize ONLY the active columns in all data splits
+        for u_split in [u_train_padded, u_val_padded, u_test_padded]:
+            u_split[..., active_output_indices] = (u_split[..., active_output_indices] - u_mean_active) / u_std_active
+
+        # Do the same for condition data 'c'
+        if c_train_padded is not None and c_train_padded.shape[-1] > 0:
+            c_train_active = c_train_padded[..., active_input_indices]
+            c_train_flat = c_train_active.reshape(-1, c_train_active.shape[-1])
+            c_mean_active = np.mean(c_train_flat, axis=0)
+            c_std_active = np.std(c_train_flat, axis=0) + EPSILON
+
+            self.c_mean = torch.zeros(len(self.all_input_vars), dtype=self.dtype)
+            self.c_std = torch.ones(len(self.all_input_vars), dtype=self.dtype)
+            self.c_mean[active_input_indices] = torch.tensor(c_mean_active, dtype=self.dtype)
+            self.c_std[active_input_indices] = torch.tensor(c_std_active, dtype=self.dtype)
+
+            for c_split in [c_train_padded, c_val_padded, c_test_padded]:
+                c_split[..., active_input_indices] = (c_split[..., active_input_indices] - c_mean_active) / c_std_active
         else:
             self.c_mean = None
             self.c_std = None

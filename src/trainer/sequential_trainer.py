@@ -78,19 +78,15 @@ class SequentialTrainer(BaseTrainer):
                        else data_splits['train']['x'])
         self.coord_dim = coord_sample.shape[-1]
         
-        u_sample = data_splits['train']['u']
-        c_sample = data_splits['train']['c']
-        self.num_output_channels = u_sample.shape[-1]
+        self.num_output_channels = len(self.data_processor.all_output_vars)
+
+        self.num_input_channels = len(self.data_processor.all_input_vars)
+        self.num_input_channels += len(self.data_processor.all_output_vars)
+        self.num_input_channels +=2 #for start time and time diff
         
-        # Compute input channels: u + time(2) + optional c + optional conditional_norm(-1)
-        self.num_input_channels = u_sample.shape[-1] + 2  # u + start_time + time_diff
-        if c_sample is not None:
-            self.num_input_channels += c_sample.shape[-1]  # add c channels
-        
-        # Account for conditional normalization
         if getattr(self.model_config, 'use_conditional_norm', False):
-            self.num_input_channels -= 1  # one less due to conditional norm
-        
+            self.num_input_channels -= 1
+
         if is_variable_coords:
             # Variable coordinates mode - need to build graphs
             self._init_variable_coords_mode(data_splits)
@@ -203,7 +199,7 @@ class SequentialTrainer(BaseTrainer):
                 pndata=x_batch
             )
         
-        return self.loss_fn(pred, y_batch)
+        return self.loss_fn(pred, y_batch, self.loss_mask)
     
     def _train_step_variable_coords(self, batch):
         """Training step for variable coordinates mode."""
@@ -238,7 +234,7 @@ class SequentialTrainer(BaseTrainer):
                 decoder_nbrs=decoder_graph_batch if len(batch) > 3 else None
             )
         
-        return self.loss_fn(pred, y_batch)
+        return self.loss_fn(pred, y_batch, self.loss_mask)
     
     def validate(self, loader):
         """Validate the model on validation set."""
@@ -282,7 +278,7 @@ class SequentialTrainer(BaseTrainer):
                 pndata=x_batch
             )
         
-        return self.loss_fn(pred, y_batch)
+        return self.loss_fn(pred, y_batch, self.loss_mask)
     
     def _validate_variable_coords(self, batch):
         """Validation step for variable coordinates."""
@@ -317,7 +313,7 @@ class SequentialTrainer(BaseTrainer):
                 decoder_nbrs=decoder_graph_batch
             )
         
-        return self.loss_fn(pred, y_batch)
+        return self.loss_fn(pred, y_batch, self.loss_mask)
     
     def _call_model_autoregressive_predict(self, x_batch, time_indices, coord_batch=None):
         """

@@ -58,6 +58,7 @@ class ModelConfig:
 class DatasetConfig:
     """Dataset configuration."""
     name: str = "CE-Gauss"                                      # Dataset name
+    simulation_name: str = "vorticity_2d"
     metaname: str = "compressible_flow/CE-Gauss"                # Dataset metadata identifier
     base_path: str = "/cluster/work/math/camlab-data/rigno-data/unstructured/"  # Base path to dataset
     train_size: int = 1024                                      # Training set size

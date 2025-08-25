@@ -4,12 +4,13 @@ Provides common initialization, setup, and utilities.
 """
 import os
 import torch
-import torch.nn as nn
 import numpy as np
 import torch.distributed as dist
 from abc import ABC, abstractmethod
 from typing import Optional
 
+from ..datasets.dataset import SIMULATION_VARIABLES
+from ..utils.metrics import masked_mse_loss
 from .default_configs import SetUpConfig, ModelConfig, DatasetConfig, OptimizerConfig, PathConfig, merge_config
 from .trainer_utils import manual_seed, load_ckpt, save_ckpt
 from ..datasets.dataset import DATASET_METADATA
@@ -55,6 +56,7 @@ class BaseTrainer(ABC):
             self.device = torch.device('cuda', self.setup_config.local_rank)
         else:
             self.device = torch.device(self.setup_config.device)
+        print(f"Using device: {self.device}")
         
         # Set random seed
         manual_seed(self.setup_config.seed + self.setup_config.rank)
@@ -68,12 +70,14 @@ class BaseTrainer(ABC):
             raise ValueError(f"Invalid dtype: {self.setup_config.dtype}")
         
         # Initialize loss function
-        self.loss_fn = nn.MSELoss()
+        self.loss_fn = masked_mse_loss
         
         # Initialize components (to be implemented by subclasses)
         self.init_dataset(self.dataset_config)
         self.init_model(self.model_config)
         self.init_optimizer(self.optimizer_config)
+        
+        self.loss_mask = self._create_loss_mask()
         
         # Print model statistics
         if self.setup_config.rank == 0:
@@ -113,6 +117,18 @@ class BaseTrainer(ABC):
         print(f"Number of parameters: {nparam}")
         self.config.datarow['nparams'] = nparam
         self.config.datarow['nbytes'] = nbytes
+
+    def _create_loss_mask(self):
+        sim_vars = SIMULATION_VARIABLES[self.dataset_config.simulation_name]
+        active_output_vars = sim_vars['outputs']
+
+        mask = torch.zeros(len(self.data_processor.all_output_vars), dtype=torch.bool, device=self.device)
+
+        for var in active_output_vars:
+            if var in self.data_processor.output_var_to_index:
+                index = self.data_processor.output_var_to_index[var]
+                mask[index] = True
+        return mask
     
     @abstractmethod
     def init_dataset(self, dataset_config):
@@ -261,7 +277,8 @@ class BaseTrainer(ABC):
             ax[1].set_xlabel('Epoch')
             ax[1].set_ylabel('relative error')
             ax[1].set_title('Loss vs relative error')
-            ax[1].legend()
+            if any(val_losses):
+                ax[1].legend()
             ax[1].set_xlim(left=0)
             if (np.array(val_losses) > 0).all():
                 ax[1].set_yscale('log')
