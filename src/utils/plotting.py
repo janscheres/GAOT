@@ -201,13 +201,7 @@ def plot_estimates(
     for ax in [ax for axs in all_axes for ax in axs if ax is not None]:
         ax: plt.Axes
         ax.set_xticks([])
-        ax.set_yticks([])
         ax.set_xlim([domain[0][0], domain[1][0]])
-        ax.set_ylim([domain[0][1], domain[1][1]])
-        ax.fill_between(
-        x=[domain[0][0], domain[1][0]], y1=domain[0][1], y2=domain[1][1],
-        **HATCH_SETTINGS,
-        )
 
     # Get prediction error
     u_err = (u_gtr - u_prd)
@@ -237,7 +231,7 @@ def plot_estimates(
         # Plot input
         h = axs_inp[ivar].scatter(
         x=x_inp[:, 0],
-        y=x_inp[:, 1],
+        y=u_inp[:, ivar],
         c=u_inp[:, ivar],
         cmap=(cmap_symmetric if symmetric[ivar] else cmap_asymmetric),
         vmax=(abs_vmax_inp if symmetric[ivar] else vmax_inp),
@@ -249,7 +243,7 @@ def plot_estimates(
         # Plot ground truth
         h = axs_gtr[ivar].scatter(
         x=x_out[:, 0],
-        y=x_out[:, 1],
+        y=u_gtr[:, ivar],
         c=u_gtr[:, ivar],
         cmap=(cmap_symmetric if symmetric[ivar] else cmap_asymmetric),
         vmax=(abs_vmax_out if symmetric[ivar] else vmax_out),
@@ -259,7 +253,7 @@ def plot_estimates(
         # Plot estimate
         h = axs_prd[ivar].scatter(
         x=x_out[:, 0],
-        y=x_out[:, 1],
+        y=u_prd[:, ivar],
         c=u_prd[:, ivar],
         cmap=(cmap_symmetric if symmetric[ivar] else cmap_asymmetric),
         vmax=(abs_vmax_out if symmetric[ivar] else vmax_out),
@@ -273,7 +267,7 @@ def plot_estimates(
         if show_error:
             h = axs_err[ivar].scatter(
             x=x_out[:, 0],
-            y=x_out[:, 1],
+            y=np.abs(u_err[:, ivar]),
             c=np.abs(u_err[:, ivar]),
             cmap=cmap_asymmetric,
             vmin=0,
