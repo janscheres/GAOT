@@ -233,9 +233,11 @@ class DataProcessor:
         
         # Normalize c data if available
         if c_train is not None:
-            c_train_flat = c_train.reshape(-1, c_train.shape[-1])
-            c_mean = np.mean(c_train_flat, axis=0)
-            c_std = np.std(c_train_flat, axis=0) + EPSILON
+            #c_train_flat = c_train.reshape(-1, c_train.shape[-1])
+            #c_mean = np.mean(c_train_flat, axis=0)
+            c_mean = np.zeros(c_train.shape[-1])
+            #c_std = np.std(c_train_flat, axis=0) + EPSILON
+            c_std = np.ones(c_train.shape[-1])
             
             self.c_mean = torch.tensor(c_mean, dtype=self.dtype)
             self.c_std = torch.tensor(c_std, dtype=self.dtype)

@@ -238,16 +238,9 @@ def compute_sequential_stats(u_data: np.ndarray, c_data: Optional[np.ndarray],
     
     # Compute c statistics if available
     if c_data is not None:
-        if use_metadata_stats and hasattr(metadata, 'c_mean') and hasattr(metadata, 'c_std'):
-            stats["c"] = {
-                "mean": np.array(metadata.c_mean),
-                "std": np.array(metadata.c_std)
-            }
-        else:
-            c_flat = c_data.reshape(-1, c_data.shape[-1])
-            c_mean = np.mean(c_flat, axis=0)
-            c_std = np.std(c_flat, axis=0) + EPSILON
-            stats["c"] = {"mean": c_mean, "std": c_std}
+        c_mean = np.zeros(c_data.shape[-1])
+        c_std = np.one(c_data.shape[-1])
+        stats["c"] = {"mean": c_mean, "std": c_std}
     
     # Compute time-related statistics
     if use_time_norm:
