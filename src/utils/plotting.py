@@ -232,7 +232,6 @@ def plot_estimates(
         h = axs_inp[ivar].scatter(
         x=x_inp[:, 0],
         y=u_inp[:, ivar],
-        c=u_inp[:, ivar],
         cmap=(cmap_symmetric if symmetric[ivar] else cmap_asymmetric),
         vmax=(abs_vmax_inp if symmetric[ivar] else vmax_inp),
         vmin=(-abs_vmax_inp if symmetric[ivar] else vmin_inp),
@@ -244,7 +243,6 @@ def plot_estimates(
         h = axs_gtr[ivar].scatter(
         x=x_out[:, 0],
         y=u_gtr[:, ivar],
-        c=u_gtr[:, ivar],
         cmap=(cmap_symmetric if symmetric[ivar] else cmap_asymmetric),
         vmax=(abs_vmax_out if symmetric[ivar] else vmax_out),
         vmin=(-abs_vmax_out if symmetric[ivar] else vmin_out),
@@ -254,7 +252,6 @@ def plot_estimates(
         h = axs_prd[ivar].scatter(
         x=x_out[:, 0],
         y=u_prd[:, ivar],
-        c=u_prd[:, ivar],
         cmap=(cmap_symmetric if symmetric[ivar] else cmap_asymmetric),
         vmax=(abs_vmax_out if symmetric[ivar] else vmax_out),
         vmin=(-abs_vmax_out if symmetric[ivar] else vmin_out),
@@ -268,7 +265,6 @@ def plot_estimates(
             h = axs_err[ivar].scatter(
             x=x_out[:, 0],
             y=np.abs(u_err[:, ivar]),
-            c=np.abs(u_err[:, ivar]),
             cmap=cmap_asymmetric,
             vmin=0,
             vmax=np.max(np.abs(u_err[:, ivar])),
