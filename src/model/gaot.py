@@ -26,8 +26,8 @@ class GAOT(nn.Module):
         
         # Validate parameters
         coord_dim = config.args.magno.coord_dim
-        if coord_dim not in [2, 3]:
-            raise ValueError(f"coord_dim must be 2 or 3, got {coord_dim}")
+        if coord_dim not in [1, 2, 3]:
+            raise ValueError(f"coord_dim must be 1, 2 or 3, got {coord_dim}")
             
         # --- Define model parameters ---
         self.input_size = input_size
@@ -38,7 +38,13 @@ class GAOT(nn.Module):
         
         # Get latent token dimensions
         latent_tokens_size = config.latent_tokens_size
-        if coord_dim == 2:
+        if coord_dim == 1:
+            if not isinstance(latent_tokens_size, int):
+                raise ValueError(f"FOr 1D, latent_tokens_size must have 1 dimension, got {len(latent_tokens_size)}")
+            self.H = latent_tokens_size
+            self.W = None
+            self.D = None
+        elif coord_dim == 2:
             if len(latent_tokens_size) != 2:
                 raise ValueError(f"For 2D, latent_tokens_size must have 2 dimensions, got {len(latent_tokens_size)}")
             self.H = latent_tokens_size[0]
@@ -65,7 +71,9 @@ class GAOT(nn.Module):
     
     def init_processor(self, node_latent_size, config):
         # Initialize the Vision Transformer processor
-        if self.coord_dim == 2:
+        if self.coord_dim == 1:
+            patch_volume = self.patch_size
+        elif self.coord_dim == 2:
             patch_volume = self.patch_size * self.patch_size
         else:  # 3D
             patch_volume = self.patch_size * self.patch_size * self.patch_size
@@ -95,7 +103,10 @@ class GAOT(nn.Module):
         """
         P = self.patch_size
         
-        if self.coord_dim == 2:
+        if self.coord_dim == 1:
+            num_patches_h = self.H // P
+            positions = torch.arange(num_patches_h, dtype=torch.float32).reshape(-1, 1)
+        elif self.coord_dim == 2:
             num_patches_H = self.H // P
             num_patches_W = self.W // P
             positions = torch.stack(torch.meshgrid(
@@ -165,7 +176,16 @@ class GAOT(nn.Module):
         C = rndata.shape[2]
         P = self.patch_size
         
-        if self.coord_dim == 2:
+        if self.coord_dim == 1:
+            H = self.H
+            assert n_regional_nodes == H, \
+                    f"n_regional_nodes ({n_regional_nodes}) != H ({H})"
+            assert H % P == 0, \
+                    f"L ({L}) must be divisible by P ({P})"
+
+            num_patches_H = H // P
+            rndata = rndata.view(batch_size, num_patches_H, P * C)
+        elif self.coord_dim == 2:
             H, W = self.H, self.W
             
             # Check input shape
@@ -221,7 +241,9 @@ class GAOT(nn.Module):
         rndata = self.processor(rndata, condition=condition, relative_positions=relative_positions)
         
         # Reshape back to original regional nodes format
-        if self.coord_dim == 2:
+        if self.coord_dim == 1:
+            rndata = rndata.view(batch_size, H, C)
+        elif self.coord_dim == 2:
             rndata = rndata.view(batch_size, num_patches_H, num_patches_W, P, P, C)
             rndata = rndata.permute(0, 1, 3, 2, 4, 5).contiguous()
             rndata = rndata.view(batch_size, H * W, C)

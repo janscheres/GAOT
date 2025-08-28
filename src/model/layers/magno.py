@@ -28,7 +28,7 @@ class MAGNOConfig:
     """Simplified MAGNO Configuration with reduced parameters"""
     
     # --- Core Parameters ---
-    coord_dim: int = 2                                      # Coordinate dimension (2 for 2D, 3 for 3D)
+    coord_dim: int = 2                                      # Coordinate dimension (1 for 1D, 2 for 2D, 3 for 3D)
     radius: float = 0.033                                   # Radius for neighbor search
     hidden_size: int = 64                                   # Base hidden size for all MLPs
     mlp_layers: int = 3                                     # Number of MLP layers (consistent across all MLPs)
@@ -61,8 +61,8 @@ class MAGNOConfig:
     
     def __post_init__(self):
         """Validate configuration parameters"""
-        if self.coord_dim not in [2, 3]:
-            raise ValueError(f"coord_dim must be 2 or 3, got {self.coord_dim}")
+        if self.coord_dim not in [1, 2, 3]:
+            raise ValueError(f"coord_dim must be 1, 2 or 3, got {self.coord_dim}")
         if self.sampling_strategy == 'ratio' and (self.sample_ratio is None or not 0 < self.sample_ratio <= 1):
             raise ValueError("sample_ratio must be in (0, 1] when using 'ratio' sampling")
         if self.sampling_strategy == 'max_neighbors' and (self.max_neighbors is None or self.max_neighbors <= 0):

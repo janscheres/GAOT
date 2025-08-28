@@ -283,7 +283,12 @@ class DataProcessor:
         """Generate latent query points on a regular grid."""
         phy_domain = self.metadata.domain_x
         
-        if len(token_size) == 2:
+        if isinstance(token_size, int):
+            x_min = phy_domain[0][0]
+            x_max = phy_domain[1][0]
+            
+            latent_queries = torch.linspace(x_min, x_max, token_size, dtype=self.dtype).reshape(-1, 1)
+        elif len(token_size) == 2:
             # 2D case
             x_min, y_min = phy_domain[0]
             x_max, y_max = phy_domain[1]
