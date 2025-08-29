@@ -181,9 +181,10 @@ class GAOT(nn.Module):
             assert n_regional_nodes == H, \
                     f"n_regional_nodes ({n_regional_nodes}) != H ({H})"
             assert H % P == 0, \
-                    f"L ({L}) must be divisible by P ({P})"
+                    f"H ({H}) must be divisible by P ({P})"
 
             num_patches_H = H // P
+            rndata = rndata.view(batch_size, num_patches_H, P, C).permute(0, 1, 2, 3).contiguous()
             rndata = rndata.view(batch_size, num_patches_H, P * C)
         elif self.coord_dim == 2:
             H, W = self.H, self.W

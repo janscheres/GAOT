@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from typing import Optional, List, Union, Tuple
 import matplotlib.colors as mcolors
+from scipy.stats import gaussian_kde
 
 import matplotlib
 
@@ -227,11 +228,15 @@ def plot_estimates(
         vmin_out = min(vmin_gtr, vmin_prd)
         abs_vmax_inp = max(np.abs(vmax_inp), np.abs(vmin_inp))
         abs_vmax_out = max(np.abs(vmax_out), np.abs(vmin_out))
+        x_vals = x_inp[:, 0]
+        kde = gaussian_kde(x_vals)
+        density = kde(x_vals)
 
         # Plot input
         h = axs_inp[ivar].scatter(
-        x=x_inp[:, 0],
-        y=u_inp[:, ivar],
+        x=x_vals,
+        y=density,
+        c=u_inp[:, ivar],
         cmap=(cmap_symmetric if symmetric[ivar] else cmap_asymmetric),
         vmax=(abs_vmax_inp if symmetric[ivar] else vmax_inp),
         vmin=(-abs_vmax_inp if symmetric[ivar] else vmin_inp),

@@ -492,5 +492,22 @@ DATASET_METADATA = {
     global_mean=[-0.0000821], # Mean from script
     global_std=[0.467], # Std from script
   ),
+  'custom/SL': Metadata(
+    periodic=False,
+    group_u='u',
+    group_c='c',
+    group_x='x',
+    type='gaot',
+    domain_x=([0.0, 0.0], [1.0, 0.0]), # Domain from script
+    domain_t=None, # Time-independent
+    fix_x=False, # Coordinates vary per sample
+    active_variables=[0],
+    chunked_variables=[0],
+    num_variable_chunks=1,
+    signed={'u': [True], 'c': [False, True]},
+    names={'u': ['$E_{out}$'], 'c': ['$pos_x$', '$charge$']},
+    global_mean=[0.0004943], # Mean from script
+    global_std=[0.1315], # Std from script
+  ),
 }
 

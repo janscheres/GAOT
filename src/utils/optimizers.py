@@ -265,6 +265,7 @@ class AdamWOptimizer:
             pbar.update(1)
 
             if (epoch + 1) % self.eval_every_eps == 0:
+                print(self.optimizer.param_groups[0]['lr'])
                 train_loss = total_loss.cpu().item() / len(trainer.train_loader)
                 losses.append(train_loss)
                 epochs.append(epoch)
